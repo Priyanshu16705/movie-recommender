@@ -1,0 +1,114 @@
+name: CI — Lint & Train
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 1: Lint Python files
+  # ──────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 . \
+            --exclude=__pycache__,venv,.venv,notebooks \
+            --max-line-length=100 \
+            --ignore=E501,W503,E203
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 2: Install dependencies + run training pipeline smoke test
+  # ──────────────────────────────────────────────────────────────────────────
+  train-test:
+    name: Install & Train
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate synthetic dataset (if real data absent)
+        run: |
+          python - << 'PYEOF'
+          import os, pandas as pd, numpy as np, random
+          random.seed(42); np.random.seed(42)
+          os.makedirs("data", exist_ok=True)
+
+          genres = ['Action','Adventure','Animation','Comedy','Crime',
+                    'Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Thriller']
+          movies = [{'movieId': i,
+                     'title': f'Movie {i} ({random.randint(1990,2023)})',
+                     'genres': '|'.join(random.sample(genres, random.randint(1,3)))}
+                    for i in range(1, 501)]
+          ratings = [{'userId': u, 'movieId': random.randint(1,500),
+                      'rating': random.choice([0.5,1,1.5,2,2.5,3,3.5,4,4.5,5]),
+                      'timestamp': 1000000000}
+                     for u in range(1, 1001) for _ in range(random.randint(20,50))]
+          tags = [{'userId': random.randint(1,1000), 'movieId': random.randint(1,500),
+                   'tag': random.choice(['fun','classic','slow','intense','funny']),
+                   'timestamp': 1000000000}
+                  for _ in range(3000)]
+
+          pd.DataFrame(movies).to_csv('data/movies.csv', index=False)
+          pd.DataFrame(ratings).to_csv('data/ratings.csv', index=False)
+          pd.DataFrame(tags).to_csv('data/tags.csv', index=False)
+          print("Synthetic data generated.")
+          PYEOF
+
+      - name: Run training pipeline
+        run: python train.py
+
+      - name: Verify model artefacts exist
+        run: |
+          python - << 'PYEOF'
+          import os
+          required = ['models/tfidf.pkl','models/sim_matrix.npy',
+                      'models/svd_model.pkl','models/metrics.json','models/movie_df.pkl']
+          for f in required:
+              assert os.path.exists(f), f"Missing: {f}"
+              print(f"✅  {f}")
+          print("All artefacts present.")
+          PYEOF
+
+      - name: Upload model artefacts (optional artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-models
+          path: models/
+          retention-days: 7
