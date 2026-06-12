@@ -61,6 +61,23 @@ movie_recommender/
 
 ---
 
+## 🚀 Live Demo
+
+Try the deployed application here:
+
+🔗 https://movie-recommender-ukquuyhogfop5n5cs2zcqv.streamlit.app/
+
+### Features
+
+* Content-Based Recommendations
+* Collaborative Filtering (SVD)
+* Hybrid Recommendation Engine
+* TMDB Poster & Overview Integration
+* Interactive Streamlit Dashboard
+
+No installation required — open the link and start exploring movie recommendations instantly.
+
+
 ## 🛠️ Local Setup
 
 ### Prerequisites
