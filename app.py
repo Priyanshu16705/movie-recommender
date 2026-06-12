@@ -31,9 +31,10 @@ from tmdb_api import TMDBClient
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
-DATA_DIR   = os.path.join(os.path.dirname(__file__), "data")
+BASE_DIR = os.path.dirname(__file__)
 
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+DATA_DIR = os.path.join(BASE_DIR, "ml-latest-small")
 # ---------------------------------------------------------------------------
 # Streamlit page configuration
 # ---------------------------------------------------------------------------
